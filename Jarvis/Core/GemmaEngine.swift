@@ -30,6 +30,9 @@ final class GemmaEngine {
     private var session: ChatSession?
     private var instructions = ""
 
+    /// Ferramentas do assistente executivo (agenda, e-mail, mensagens…).
+    var tools: ExecutiveTools?
+
     var isReady: Bool { status == .ready }
 
     func load(_ variant: GemmaVariant, instructions: String) async {
@@ -133,16 +136,22 @@ final class GemmaEngine {
     func resetConversation(instructions: String? = nil) {
         if let instructions { self.instructions = instructions }
         guard let container else { return }
+        var dispatch: (@Sendable (ToolCall) async throws -> String)?
+        if let tools {
+            dispatch = { call in await tools.dispatch(call) }
+        }
         session = ChatSession(
             container,
             instructions: self.instructions,
             generateParameters: GenerateParameters(
-                maxTokens: 400,
-                maxKVSize: 4096,
-                temperature: 0.7,
+                maxTokens: 600,
+                maxKVSize: 8192,
+                temperature: 0.6,
                 topP: 0.95,
                 repetitionPenalty: 1.05
-            )
+            ),
+            tools: tools?.specs,
+            toolDispatch: dispatch
         )
     }
 

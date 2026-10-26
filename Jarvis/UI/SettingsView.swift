@@ -27,6 +27,18 @@ struct SettingsView: View {
                     Text("Roda 100% offline no iPhone via MLX. Trocar de modelo baixa os novos pesos uma única vez.")
                 }
 
+                Section {
+                    NavigationLink {
+                        AccountsView()
+                    } label: {
+                        Label("Contas de e-mail", systemImage: "envelope.badge.person.crop")
+                    }
+                } header: {
+                    Text("Assistente executivo")
+                } footer: {
+                    Text("Agenda, lembretes e contatos do iPhone já funcionam. Conecte Gmail, Outlook ou iCloud para e-mails.")
+                }
+
                 Section("Personalidade") {
                     Picker("Idioma", selection: $settings.language) {
                         ForEach(JarvisLanguage.allCases) { Text($0.displayName).tag($0) }

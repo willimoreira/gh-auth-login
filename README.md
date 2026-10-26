@@ -46,6 +46,15 @@ do Google rodando **100% offline no iPhone** via [MLX Swift](https://github.com/
 
 ## Como compilar
 
+**Jeito rápido** — cole no Terminal do Mac (instala XcodeGen, baixa o código em `~/Developer/Jarvis`,
+gera o projeto e abre o Xcode):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/willimoreira/gh-auth-login/claude/jarvis-virtual-assistant-gemma-e1v5u0/scripts/setup-mac.sh | bash
+```
+
+**Manual:**
+
 ```bash
 brew install xcodegen
 git clone <este repositório> && cd gh-auth-login

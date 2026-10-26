@@ -39,12 +39,35 @@ do Google rodando **100% offline no iPhone** via [MLX Swift](https://github.com/
   branco-gelo ouvindo, âmbar processando.
 - **Modo teclado** para usar em silêncio.
 
+## Assistente executivo
+
+O Gemma 4 usa *tool calling* para agir de verdade, sempre pedindo confirmação antes
+de enviar, remarcar ou apagar algo ("confirmar" por voz ou botão no HUD).
+
+| Serviço | O que o Jarvis faz | Como conectar |
+|---|---|---|
+| Calendário (iCloud/Google/Outlook do iPhone) | lista, cria, remarca, cancela | permissão ao abrir o app |
+| Lembretes | lista, cria, conclui | permissão ao abrir o app |
+| Contatos | descobre e-mail/telefone pelo nome | permissão ao abrir o app |
+| Gmail | lê, resume, busca, responde, envia | Configurações › Contas (Client ID iOS do Google Cloud) |
+| Outlook / Hotmail / MSN | lê, resume, busca, responde, envia | Configurações › Contas (Client ID do Microsoft Entra) |
+| iCloud Mail | lê, resume, busca, responde, envia | Configurações › Contas (senha de app da Apple) |
+| iMessage / SMS | escreve e abre a tela de envio | — (o iOS exige tocar em Enviar) |
+| WhatsApp | abre a conversa com o texto pronto | — (o iOS exige tocar em Enviar) |
+| Ligações | disca para o contato | — |
+
+Exemplos: *"Jarvis, o que tenho amanhã?"*, *"Remarca a reunião das 15h para sexta às 10"*,
+*"Tenho e-mails não lidos?"*, *"Responde o e-mail do João dizendo que confirmo"*,
+*"Manda no WhatsApp para a Ana que vou atrasar 10 minutos"*.
+
+Tokens e senhas ficam no Keychain do iPhone; os e-mails trafegam só entre o iPhone e o seu provedor.
+
 ## Requisitos
 
 | | |
 |---|---|
 | Mac | Xcode **26** ou mais novo |
-| iPhone | iOS 17+; **8 GB de RAM recomendados** (iPhone 15 Pro, 16, 16 Pro, 17…). O E2B também roda em aparelhos de 6 GB, mais apertado. |
+| iPhone | iOS 18+; **8 GB de RAM recomendados** (iPhone 15 Pro, 16, 16 Pro, 17…). O E2B também roda em aparelhos de 6 GB, mais apertado. |
 | Espaço | ~4 GB livres (E2B) ou ~6 GB (E4B) |
 
 > O simulador do iOS **não** roda MLX na GPU — use um iPhone real.

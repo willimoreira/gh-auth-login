@@ -28,9 +28,17 @@ struct ContentView: View {
 
                 Spacer(minLength: 0)
 
+                if let pending = jarvis.tools.pending {
+                    PendingActionCard(
+                        summary: pending.summary,
+                        onConfirm: { jarvis.confirmPendingAction() },
+                        onCancel: { jarvis.cancelPendingAction() })
+                    .transition(.opacity)
+                }
+
                 if case .ready = jarvis.engine.status {
                     TranscriptView(lines: jarvis.lines)
-                        .frame(maxHeight: 230)
+                        .frame(maxHeight: jarvis.tools.pending == nil ? 230 : 140)
                 } else {
                     ModelStatusView(status: jarvis.engine.status) {
                         Task { await jarvis.loadModel() }
@@ -47,6 +55,13 @@ struct ContentView: View {
             SettingsView()
                 .presentationDetents([.large])
         }
+        .sheet(item: Bindable(jarvis.tools.messaging).composeDraft) { draft in
+            MessageComposeView(draft: draft) { _ in
+                jarvis.tools.messaging.composeDraft = nil
+            }
+            .ignoresSafeArea()
+        }
+        .animation(.easeInOut, value: jarvis.tools.pending?.summary)
         .task { await jarvis.boot() }
     }
 

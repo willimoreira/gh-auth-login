@@ -24,6 +24,7 @@ final class JarvisAssistant {
     let engine = GemmaEngine()
     let ears = SpeechRecognizer()
     let voice = VoiceSynthesizer()
+    let tools = ExecutiveTools()
 
     private(set) var mode: Mode = .offline
     private(set) var lines: [Line] = []
@@ -44,6 +45,7 @@ final class JarvisAssistant {
 
     init() {
         voice.onFinishedSpeaking = { [weak self] in self?.didFinishSpeaking() }
+        engine.tools = tools
     }
 
     // MARK: Ciclo de vida
@@ -51,6 +53,7 @@ final class JarvisAssistant {
     func boot() async {
         applyVoiceSettings()
         permissionsGranted = await SpeechRecognizer.requestAuthorization()
+        await tools.requestPermissions()
         await loadModel()
     }
 
@@ -127,12 +130,30 @@ final class JarvisAssistant {
             return
         }
         cancelAll()
+
+        // Há uma ação aguardando? "confirmar"/"cancelar" são resolvidos aqui, sem o modelo.
+        if tools.pending != nil {
+            switch Self.decision(in: prompt) {
+            case .confirm?:
+                append(.user, prompt)
+                confirmPendingAction(echo: false)
+                return
+            case .cancel?:
+                append(.user, prompt)
+                cancelPendingAction(echo: false)
+                return
+            case nil:
+                tools.cancelPending()
+            }
+        }
+
         append(.user, prompt)
         let replyID = append(.jarvis, "")
         mode = .thinking
         haptic(.medium)
 
-        let context = JarvisPersona.deviceContext(language: settings.language)
+        let context = JarvisPersona.deviceContext(
+            language: settings.language, mailAccounts: tools.mail.connectedProviders)
         let fullPrompt = "\(context)\n\(prompt)"
 
         generation = Task { [weak self] in
@@ -162,6 +183,49 @@ final class JarvisAssistant {
             self.generation = nil
             if !self.voice.isSpeaking { self.finishTurn() }
         }
+    }
+
+    // MARK: Confirmação de ações
+
+    /// Executa a ação pendente (enviar e-mail, remarcar, mandar mensagem…).
+    func confirmPendingAction(echo: Bool = true) {
+        guard tools.pending != nil else { return }
+        cancelAll()
+        if echo { append(.user, "Confirmar") }
+        mode = .thinking
+        haptic(.heavy)
+        generation = Task { [weak self] in
+            guard let self else { return }
+            let result = await self.tools.confirmPending()
+            self.generation = nil
+            self.say(result)
+        }
+    }
+
+    func cancelPendingAction(echo: Bool = true) {
+        guard tools.pending != nil else { return }
+        cancelAll()
+        tools.cancelPending()
+        if echo { append(.user, "Cancelar") }
+        say(settings.language == .portuguese ? "Cancelado, \(settings.honorific)." : "Cancelled, \(settings.honorific).")
+    }
+
+    enum Decision { case confirm, cancel }
+
+    static func decision(in text: String) -> Decision? {
+        let normalized = text.lowercased()
+            .folding(options: .diacriticInsensitive, locale: .current)
+            .components(separatedBy: CharacterSet.letters.inverted)
+            .filter { !$0.isEmpty }
+        guard let first = normalized.first, normalized.count <= 5 else { return nil }
+        let confirmWords: Set = [
+            "confirmar", "confirmo", "confirma", "confirmado", "sim", "pode", "manda", "envia", "enviar",
+            "ok", "okay", "yes", "confirm", "send", "go", "positivo", "isso",
+        ]
+        let cancelWords: Set = ["cancelar", "cancela", "nao", "no", "cancel", "esquece", "negativo", "pare"]
+        if cancelWords.contains(first) { return .cancel }
+        if confirmWords.contains(first) { return .confirm }
+        return nil
     }
 
     // MARK: Internos

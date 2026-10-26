@@ -45,6 +45,8 @@ struct SettingsView: View {
                     }
                     TextField("Como devo chamá-lo?", text: $settings.honorific)
                     Toggle("Conversa contínua", isOn: $settings.continuousConversation)
+                    Toggle("Sempre ativo (chamar \"Jarvis\")", isOn: $settings.alwaysOn)
+                    Toggle("Avisos proativos", isOn: $settings.proactive)
                 }
 
                 Section {

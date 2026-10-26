@@ -84,6 +84,7 @@ struct ContentView: View {
         case .thinking: "Analisando…"
         case .offline: "Inicializando sistemas…"
         case .idle: "Toque no reator para falar"
+        case .standby: "Diga “Jarvis” ou toque no reator"
         case .speaking: ""
         }
     }

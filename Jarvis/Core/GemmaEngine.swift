@@ -160,6 +160,10 @@ final class GemmaEngine {
         guard let session else {
             return AsyncThrowingStream { $0.finish(throwing: JarvisError.modelNotReady) }
         }
+        // Em segundo plano o iOS proíbe a GPU: o Gemma roda no processador (mais lento, mas funciona).
+        if UIApplication.shared.applicationState == .background {
+            return Device.withDefaultDevice(.cpu) { session.streamResponse(to: prompt) }
+        }
         return session.streamResponse(to: prompt)
     }
 }

@@ -1,4 +1,5 @@
 import AVFoundation
+import UIKit
 
 /// Voz do J.A.R.V.I.S.: transforma cada frase em áudio (voz neural Kokoro ou voz do sistema),
 /// passa pela cadeia de efeitos de IA e toca na ordem, enquanto o Gemma ainda está gerando.
@@ -42,8 +43,17 @@ final class VoiceSynthesizer {
         output.onDrained = { [weak self] in self?.finishIfIdle() }
     }
 
-    /// A voz neural só é usada em inglês (o Kokoro não fala português).
-    var usesNeural: Bool { engine == .neural && language == .english }
+    /// A voz neural só é usada em inglês (o Kokoro não fala português) e com o app na tela
+    /// (em segundo plano o iOS não libera a GPU/Neural Engine com a mesma garantia).
+    var usesNeural: Bool {
+        engine == .neural && language == .english
+            && UIApplication.shared.applicationState != .background
+    }
+
+    /// Mantém o áudio ativo (silêncio) para o app não ser suspenso em segundo plano.
+    func holdAudio(_ on: Bool) {
+        output.setKeepAlive(on)
+    }
 
     func speak(_ text: String) {
         let clean = Self.speakable(text)

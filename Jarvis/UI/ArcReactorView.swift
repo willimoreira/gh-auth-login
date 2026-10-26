@@ -34,7 +34,7 @@ struct ArcReactorView: View {
         case .thinking: 3.2
         case .listening: 1.6
         case .speaking: 1.3
-        case .idle: 0.6
+        case .idle, .standby: 0.6
         case .offline: 0.25
         }
         let e = smoothed

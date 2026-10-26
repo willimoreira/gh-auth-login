@@ -23,6 +23,8 @@ final class VoiceOutput {
 
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
+    /// Toca silêncio em loop para o iOS não suspender o app em segundo plano enquanto ele pensa.
+    private let idlePlayer = AVAudioPlayerNode()
     private let eq = AVAudioUnitEQ(numberOfBands: 3)
     private let metallic = AVAudioUnitDelay()
     private let room = AVAudioUnitReverb()
@@ -35,7 +37,8 @@ final class VoiceOutput {
     init() {
         configureEffects()
 
-        [player, eq, metallic, room].forEach { engine.attach($0) }
+        [player, idlePlayer, eq, metallic, room].forEach { engine.attach($0) }
+        engine.connect(idlePlayer, to: engine.mainMixerNode, format: Self.format)
         engine.connect(player, to: eq, format: Self.format)
         engine.connect(eq, to: metallic, format: Self.format)
         engine.connect(metallic, to: room, format: Self.format)
@@ -117,6 +120,19 @@ final class VoiceOutput {
         } catch {
             print("VoiceOutput: falha ao configurar áudio: \(error)")
         }
+    }
+
+    func setKeepAlive(_ on: Bool) {
+        guard on else {
+            idlePlayer.stop()
+            return
+        }
+        guard !idlePlayer.isPlaying else { return }
+        prepareForSpeech()
+        ensureRunning()
+        guard engine.isRunning, let silence = VoiceSynthesizer.silence(seconds: 1) else { return }
+        idlePlayer.scheduleBuffer(silence, at: nil, options: .loops)
+        idlePlayer.play()
     }
 
     private func ensureRunning() {

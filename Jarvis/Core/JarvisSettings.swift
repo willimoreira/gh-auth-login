@@ -88,6 +88,14 @@ final class JarvisSettings {
     var neuralVoice: String {
         didSet { defaults.set(neuralVoice, forKey: "neuralVoice") }
     }
+    /// Fica sempre ouvindo (inclusive com a tela bloqueada) e atende quando chamam "Jarvis".
+    var alwaysOn: Bool {
+        didSet { defaults.set(alwaysOn, forKey: "alwaysOn") }
+    }
+    /// Toma a iniciativa: compromissos próximos, bateria fraca, resumo da manhã.
+    var proactive: Bool {
+        didSet { defaults.set(proactive, forKey: "proactive") }
+    }
     /// Efeito de IA (EQ + timbre metálico + ambiente) aplicado à voz.
     var aiVoiceEffect: Bool {
         didSet { defaults.set(aiVoiceEffect, forKey: "aiEffect") }
@@ -104,5 +112,7 @@ final class JarvisSettings {
             VoiceSynthesizer.Engine(rawValue: defaults.string(forKey: "voiceEngine") ?? "") ?? .system
         neuralVoice = defaults.string(forKey: "neuralVoice") ?? "bm_george"
         aiVoiceEffect = defaults.object(forKey: "aiEffect") as? Bool ?? true
+        alwaysOn = defaults.object(forKey: "alwaysOn") as? Bool ?? true
+        proactive = defaults.object(forKey: "proactive") as? Bool ?? true
     }
 }

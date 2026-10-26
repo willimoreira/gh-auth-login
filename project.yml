@@ -43,6 +43,8 @@ targets:
       path: Jarvis/Resources/Info.plist
       properties:
         CFBundleDisplayName: J.A.R.V.I.S.
+        INAlternativeAppNames:
+          - INAlternativeAppName: Jarvis
         UILaunchScreen: {}
         UIRequiresFullScreen: true
         UIStatusBarHidden: true

@@ -1,3 +1,4 @@
+import AudioToolbox
 import SwiftUI
 
 /// Orquestra o ciclo: ouvir → pensar (Gemma 4) → falar.
@@ -8,6 +9,7 @@ final class JarvisAssistant {
     enum Mode: Equatable {
         case offline      // modelo ainda não carregado
         case idle
+        case standby      // ouvindo à espera de "Jarvis"
         case listening
         case thinking
         case speaking
@@ -25,6 +27,12 @@ final class JarvisAssistant {
     let ears = SpeechRecognizer()
     let voice = VoiceSynthesizer()
     let tools = ExecutiveTools()
+    let proactive: ProactiveMonitor
+
+    /// Para o atalho da Siri alcançar o assistente.
+    static weak var current: JarvisAssistant?
+    /// Formas como o reconhecimento de voz costuma escrever "Jarvis".
+    static let wakeWords = ["jarvis", "jarvas", "jarbas", "jervis", "javis", "jarviz", "djarvis"]
 
     private(set) var mode: Mode = .offline
     private(set) var lines: [Line] = []
@@ -32,6 +40,8 @@ final class JarvisAssistant {
 
     private var generation: Task<Void, Never>?
     private var greeted = false
+    private var listenWhenReady = false
+    private var lastPrompt: String?
 
     /// Energia 0...1 usada pela animação do reator, conforme o estado.
     var energy: Float {
@@ -44,8 +54,21 @@ final class JarvisAssistant {
     }
 
     init() {
+        proactive = ProactiveMonitor(calendar: tools.calendar, settings: settings)
         voice.onFinishedSpeaking = { [weak self] in self?.didFinishSpeaking() }
         engine.tools = tools
+        proactive.announce = { [weak self] in self?.announce($0) }
+        proactive.canSpeakNow = { [weak self] in
+            guard let self else { return false }
+            return self.mode == .idle || self.mode == .standby
+        }
+        Self.current = self
+
+        let center = NotificationCenter.default
+        center.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) {
+            [weak self] _ in
+            Task { @MainActor in self?.didEnterBackground() }
+        }
     }
 
     // MARK: Ciclo de vida
@@ -62,9 +85,26 @@ final class JarvisAssistant {
         await engine.load(settings.variant, instructions: instructions)
         guard engine.isReady else { return }
         mode = .idle
-        if !greeted {
+        proactive.start()
+        if listenWhenReady {
+            listenWhenReady = false
+            greeted = true
+            startListening()
+        } else if !greeted {
             greeted = true
             say(JarvisPersona.greeting(language: settings.language, honorific: settings.honorific))
+        } else {
+            goIdle()
+        }
+    }
+
+    /// Pedido de fora (Siri, botão de Ação): ouve agora ou assim que o modelo carregar.
+    func requestListening() {
+        if engine.isReady {
+            cancelAll()
+            startListening()
+        } else {
+            listenWhenReady = true
         }
     }
 
@@ -76,6 +116,7 @@ final class JarvisAssistant {
         } else {
             engine.resetConversation(instructions: instructions)
         }
+        if mode == .idle || mode == .standby { goIdle() }
     }
 
     func newConversation() {
@@ -94,7 +135,7 @@ final class JarvisAssistant {
     /// Toque no reator: começa a ouvir, encerra a escuta ou interrompe a fala.
     func reactorTapped() {
         switch mode {
-        case .idle: startListening()
+        case .idle, .standby: startListening()
         case .listening: ears.stop(deliver: true)
         case .speaking, .thinking:
             cancelAll()
@@ -110,6 +151,7 @@ final class JarvisAssistant {
             return
         }
         voice.stop()
+        voice.holdAudio(false)
         do {
             try ears.start(locale: settings.language.locale) { [weak self] text in
                 self?.send(text)
@@ -126,10 +168,11 @@ final class JarvisAssistant {
     func send(_ text: String) {
         let prompt = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty, engine.isReady else {
-            if mode == .listening { mode = .idle }
+            if mode == .listening || mode == .standby { goIdle() }
             return
         }
         cancelAll()
+        lastPrompt = prompt
 
         // Há uma ação aguardando? "confirmar"/"cancelar" são resolvidos aqui, sem o modelo.
         if tools.pending != nil {
@@ -151,6 +194,8 @@ final class JarvisAssistant {
         let replyID = append(.jarvis, "")
         mode = .thinking
         haptic(.medium)
+        // Mantém o áudio ativo enquanto pensa, senão o iOS suspende o app em segundo plano.
+        voice.holdAudio(true)
 
         let context = JarvisPersona.deviceContext(
             language: settings.language, mailAccounts: tools.mail.connectedProviders)
@@ -267,10 +312,51 @@ final class JarvisAssistant {
 
     /// Fim da resposta: volta à espera ou, em conversa contínua, já começa a ouvir.
     private func finishTurn() {
-        mode = .idle
         if settings.continuousConversation, lines.last?.speaker == .jarvis {
             startListening()
+        } else {
+            goIdle()
         }
+    }
+
+    /// Estado de repouso: aguardando "Jarvis" (sempre ativo) ou simplesmente em espera.
+    private func goIdle() {
+        voice.holdAudio(false)
+        guard settings.alwaysOn, engine.isReady, permissionsGranted else {
+            if ears.isListening { ears.stop(deliver: false) }
+            mode = .idle
+            return
+        }
+        do {
+            try ears.start(
+                locale: settings.language.locale, wakeWords: Self.wakeWords,
+                onWake: { [weak self] in self?.didHearWakeWord() }
+            ) { [weak self] text in
+                self?.send(text)
+            }
+            mode = .standby
+        } catch {
+            mode = .idle
+        }
+    }
+
+    private func didHearWakeWord() {
+        mode = .listening
+        haptic(.light)
+        AudioServicesPlaySystemSound(1113)
+    }
+
+    /// Fala por iniciativa própria (lembretes, bateria, resumo do dia).
+    private func announce(_ text: String) {
+        guard mode == .idle || mode == .standby else { return }
+        ears.stop(deliver: false)
+        say(text)
+    }
+
+    /// Em segundo plano o iOS proíbe a GPU: uma resposta em andamento é refeita no processador.
+    private func didEnterBackground() {
+        guard mode == .thinking, generation != nil, let prompt = lastPrompt else { return }
+        send(prompt)
     }
 
     private func cancelAll() {

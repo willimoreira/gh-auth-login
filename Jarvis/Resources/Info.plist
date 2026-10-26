@@ -20,6 +20,13 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>INAlternativeAppNames</key>
+	<array>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>Jarvis</string>
+		</dict>
+	</array>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>O J.A.R.V.I.S. consulta e organiza sua agenda quando você pede.</string>
 	<key>NSContactsUsageDescription</key>

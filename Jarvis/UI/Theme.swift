@@ -15,7 +15,7 @@ enum HUD {
     static func color(for mode: JarvisAssistant.Mode) -> Color {
         switch mode {
         case .offline: deep
-        case .idle: cyan
+        case .idle, .standby: cyan
         case .listening: ice
         case .thinking: amber
         case .speaking: cyan
@@ -26,6 +26,7 @@ enum HUD {
         switch mode {
         case .offline: "INICIALIZANDO"
         case .idle: "EM ESPERA"
+        case .standby: "PRONTO · DIGA JARVIS"
         case .listening: "OUVINDO"
         case .thinking: "PROCESSANDO"
         case .speaking: "RESPONDENDO"

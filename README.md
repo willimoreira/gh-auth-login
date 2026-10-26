@@ -26,6 +26,11 @@ do Google rodando **100% offline no iPhone** via [MLX Swift](https://github.com/
   A fala começa já na primeira frase gerada, sem esperar a resposta inteira.
 - **Conversa contínua**: depois de responder, ele volta a ouvir sozinho (desligável).
 - **Fim de fala automático**: detecta 1,4 s de silêncio e envia o comando.
+- **Efeito de IA na voz**: EQ, timbre metálico (delay curtíssimo com realimentação) e ambiente
+  de sala, aplicados em tempo real com `AVAudioEngine` — liga/desliga nas configurações.
+- **Voz neural (beta)**: Kokoro-82M via Core ML ([FluidAudio](https://github.com/FluidInference/FluidAudio)),
+  com vozes masculinas britânicas (George, Daniel, Lewis, Fable), rodando no iPhone.
+  Só fala inglês; em português o Jarvis usa a voz do sistema.
 - **Interromper**: toque no reator enquanto ele fala para cortá-lo e falar de novo.
 - **Personalidade**: mordomo britânico, humor seco, chama você de "senhor" (configurável).
 - **Sensores**: hora, data e bateria do iPhone vão como contexto em cada pergunta.
@@ -92,7 +97,9 @@ Jarvis/
     JarvisSettings.swift         # modelo, idioma, voz, tratamento, conversa contínua
   Voice/
     SpeechRecognizer.swift       # fala → texto, nível do microfone, detecção de silêncio
-    VoiceSynthesizer.swift       # texto → fala, escolha de voz masculina, pulso p/ animação
+    VoiceSynthesizer.swift       # fila de falas: voz neural ou do sistema → buffers de áudio
+    VoiceOutput.swift            # AVAudioEngine com efeitos de IA e medidor de nível
+    NeuralVoice.swift            # voz neural Kokoro (Core ML, FluidAudio)
   UI/
     ArcReactorView.swift         # reator arc animado (Canvas + TimelineView)
     HUDElements.swift            # fundo hexagonal, cantoneiras, painéis, barra de status

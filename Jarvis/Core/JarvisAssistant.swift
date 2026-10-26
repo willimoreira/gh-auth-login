@@ -170,10 +170,14 @@ final class JarvisAssistant {
         JarvisPersona.instructions(language: settings.language, honorific: settings.honorific)
     }
 
-    private func applyVoiceSettings() {
+    func applyVoiceSettings() {
         voice.language = settings.language
         voice.voiceIdentifier = settings.voiceIdentifier
         voice.rate = settings.speechRate
+        voice.engine = settings.voiceEngine
+        voice.neuralVoiceID = settings.neuralVoice
+        voice.aiEffect = settings.aiVoiceEffect
+        voice.warmUp()
     }
 
     private func say(_ text: String) {

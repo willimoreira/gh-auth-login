@@ -72,6 +72,18 @@ final class JarvisSettings {
     var speechRate: Float {
         didSet { defaults.set(speechRate, forKey: "rate") }
     }
+    /// Motor de voz: do sistema (todas as línguas) ou neural Kokoro (só inglês).
+    var voiceEngine: VoiceSynthesizer.Engine {
+        didSet { defaults.set(voiceEngine.rawValue, forKey: "voiceEngine") }
+    }
+    /// Voz britânica do Kokoro ("bm_george", "bm_daniel", ...).
+    var neuralVoice: String {
+        didSet { defaults.set(neuralVoice, forKey: "neuralVoice") }
+    }
+    /// Efeito de IA (EQ + timbre metálico + ambiente) aplicado à voz.
+    var aiVoiceEffect: Bool {
+        didSet { defaults.set(aiVoiceEffect, forKey: "aiEffect") }
+    }
 
     init() {
         variant = GemmaVariant(rawValue: defaults.string(forKey: "variant") ?? "") ?? .e2b
@@ -80,5 +92,9 @@ final class JarvisSettings {
         honorific = defaults.string(forKey: "honorific") ?? "senhor"
         continuousConversation = defaults.object(forKey: "continuous") as? Bool ?? true
         speechRate = defaults.object(forKey: "rate") as? Float ?? 0.52
+        voiceEngine =
+            VoiceSynthesizer.Engine(rawValue: defaults.string(forKey: "voiceEngine") ?? "") ?? .system
+        neuralVoice = defaults.string(forKey: "neuralVoice") ?? "bm_george"
+        aiVoiceEffect = defaults.object(forKey: "aiEffect") as? Bool ?? true
     }
 }

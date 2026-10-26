@@ -23,6 +23,14 @@ enum GemmaVariant: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Tamanho total dos arquivos no Hugging Face (para medir o progresso do download).
+    var downloadBytes: Int64 {
+        switch self {
+        case .e2b: 3_583_088_661
+        case .e4b: 5_179_241_512
+        }
+    }
+
     var detail: String {
         switch self {
         case .e2b: "~3,6 GB · rápido · recomendado para a maioria dos iPhones"

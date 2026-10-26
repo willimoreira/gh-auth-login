@@ -32,7 +32,11 @@ struct ContentView: View {
                     TranscriptView(lines: jarvis.lines)
                         .frame(maxHeight: 230)
                 } else {
-                    ModelStatusView(status: jarvis.engine.status) {
+                    ModelStatusView(
+                        status: jarvis.engine.status,
+                        downloaded: jarvis.engine.downloadedBytes,
+                        total: jarvis.engine.totalBytes
+                    ) {
                         Task { await jarvis.loadModel() }
                     }
                 }
@@ -166,6 +170,8 @@ struct TranscriptView: View {
 /// Download/carga do Gemma 4 com barra de progresso no estilo HUD.
 struct ModelStatusView: View {
     var status: GemmaEngine.Status
+    var downloaded: Int64 = 0
+    var total: Int64 = 0
     var retry: () -> Void
 
     var body: some View {
@@ -177,8 +183,10 @@ struct ModelStatusView: View {
                 Text("Baixando rede neural (apenas na primeira vez)…")
                     .font(HUD.mono(12)).foregroundStyle(HUD.ice)
                 progressBar(fraction)
-                Text(String(format: "%.0f%%", fraction * 100))
+                Text(String(format: "%.0f%%", fraction * 100) + sizeText)
                     .font(HUD.mono(11, weight: .bold)).foregroundStyle(HUD.cyan)
+                Text("Mantenha o app aberto e no Wi-Fi.")
+                    .font(HUD.mono(10)).foregroundStyle(HUD.ice.opacity(0.6))
             case .loading:
                 Text("Carregando pesos na GPU…").font(HUD.mono(12)).foregroundStyle(HUD.ice)
                 progressBar(1)
@@ -191,6 +199,12 @@ struct ModelStatusView: View {
                 EmptyView()
             }
         }
+    }
+
+    private var sizeText: String {
+        guard total > 0 else { return "" }
+        let gb = { (bytes: Int64) in String(format: "%.1f", Double(bytes) / 1_000_000_000) }
+        return " · \(gb(downloaded)) de \(gb(total)) GB"
     }
 
     private func progressBar(_ fraction: Double) -> some View {

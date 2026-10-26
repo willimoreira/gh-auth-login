@@ -5,6 +5,7 @@ import MLXHuggingFace
 import MLXLLM
 import MLXLMCommon
 import Tokenizers
+import UIKit
 
 /// Baixa (uma única vez), carrega e conversa com o Gemma 4 rodando localmente via MLX (GPU/Metal).
 @MainActor
@@ -21,6 +22,9 @@ final class GemmaEngine {
 
     private(set) var status: Status = .idle
     private(set) var loadedVariant: GemmaVariant?
+    /// Bytes já baixados e total esperado, para mostrar "1,4 de 3,6 GB".
+    private(set) var downloadedBytes: Int64 = 0
+    private(set) var totalBytes: Int64 = 0
 
     private var container: ModelContainer?
     private var session: ChatSession?
@@ -42,15 +46,30 @@ final class GemmaEngine {
         // Mantém o cache de buffers da GPU pequeno para não estourar a RAM do iPhone.
         Memory.cacheLimit = 32 * 1024 * 1024
         status = .downloading(0)
+        downloadedBytes = 0
+        totalBytes = variant.downloadBytes
+
+        removeStalePartialDownloads()
+
+        // Se a tela bloquear, o iOS congela o download: mantém a tela acesa até terminar.
+        UIApplication.shared.isIdleTimerDisabled = true
+        let monitor = Task { [weak self] in
+            while !Task.isCancelled {
+                self?.measureDownload(variant)
+                try? await Task.sleep(for: .seconds(1))
+            }
+        }
+        defer {
+            monitor.cancel()
+            UIApplication.shared.isIdleTimerDisabled = false
+        }
 
         do {
             let container = try await #huggingFaceLoadModelContainer(
                 configuration: variant.configuration
             ) { progress in
                 Task { @MainActor [weak self] in
-                    guard let self, case .downloading = self.status else { return }
-                    let fraction = progress.fractionCompleted
-                    self.status = fraction >= 0.999 ? .loading : .downloading(fraction)
+                    self?.report(progress.fractionCompleted)
                 }
             }
             self.container = container
@@ -60,6 +79,54 @@ final class GemmaEngine {
         } catch {
             status = .failed(error.localizedDescription)
         }
+    }
+
+    /// Atualiza o progresso só para frente (duas fontes: a biblioteca e a medição em disco).
+    private func report(_ fraction: Double) {
+        guard case .downloading(let current) = status else { return }
+        if fraction >= 0.999 {
+            status = .loading
+        } else if fraction > current {
+            status = .downloading(fraction)
+        }
+    }
+
+    /// Downloads interrompidos deixam arquivos parciais que não são retomados; apaga antes de começar.
+    private func removeStalePartialDownloads() {
+        let fm = FileManager.default
+        let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+        guard let files = try? fm.contentsOfDirectory(at: tmp, includingPropertiesForKeys: nil) else { return }
+        for file in files where file.lastPathComponent.hasPrefix("CFNetworkDownload") {
+            try? fm.removeItem(at: file)
+        }
+    }
+
+    /// A biblioteca de download não informa o progresso do arquivo grande de pesos,
+    /// então medimos o que já chegou no disco (arquivos temporários + cache do Hugging Face).
+    private func measureDownload(_ variant: GemmaVariant) {
+        guard case .downloading = status else { return }
+        let fm = FileManager.default
+        var bytes: Int64 = 0
+
+        let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+        if let files = try? fm.contentsOfDirectory(at: tmp, includingPropertiesForKeys: [.fileSizeKey]) {
+            for file in files where file.lastPathComponent.hasPrefix("CFNetworkDownload") {
+                bytes += Int64((try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+            }
+        }
+
+        let repo = "models--" + variant.configuration.name.replacingOccurrences(of: "/", with: "--")
+        if let caches = fm.urls(for: .cachesDirectory, in: .userDomainMask).first {
+            let blobs = caches.appendingPathComponent("huggingface/hub/\(repo)/blobs")
+            if let files = try? fm.contentsOfDirectory(at: blobs, includingPropertiesForKeys: [.fileSizeKey]) {
+                for file in files {
+                    bytes += Int64((try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+                }
+            }
+        }
+
+        downloadedBytes = min(bytes, totalBytes)
+        report(min(Double(bytes) / Double(max(totalBytes, 1)), 0.99))
     }
 
     /// Começa uma nova conversa (limpa a memória de curto prazo / KV cache).

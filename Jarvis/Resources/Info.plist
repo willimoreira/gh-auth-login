@@ -20,8 +20,14 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>O J.A.R.V.I.S. consulta e organiza sua agenda quando você pede.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>O J.A.R.V.I.S. busca nos contatos para saber para quem mandar e-mails, mensagens e ligações.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>O J.A.R.V.I.S. precisa do microfone para ouvir seus comandos de voz.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>O J.A.R.V.I.S. cria e consulta seus lembretes quando você pede.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>O J.A.R.V.I.S. transcreve sua voz no próprio aparelho para entender seus comandos.</string>
 	<key>UIBackgroundModes</key>

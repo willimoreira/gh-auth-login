@@ -42,7 +42,7 @@ final class SpeechRecognizer {
         }
         self.recognizer = recognizer
 
-        try AudioSessionManager.activate()
+        try AudioSessionManager.activateForListening()
 
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
@@ -152,14 +152,29 @@ enum SpeechError: LocalizedError {
     }
 }
 
+/// Duas configurações de áudio: uma para ouvir (microfone, inclusive o dos AirPods) e outra
+/// para falar (saída de mídia: volume cheio e AirPods em alta qualidade).
+/// O modo "chamada de voz" foi abandonado porque, sem processamento de voz, baixa o volume.
 enum AudioSessionManager {
-    static func activate() throws {
+    static func activateForListening() throws {
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(
             .playAndRecord,
-            mode: .voiceChat,
-            options: [.defaultToSpeaker, .allowBluetoothA2DP, .duckOthers]
+            mode: .default,
+            options: [.allowBluetoothHFP, .allowBluetoothA2DP, .defaultToSpeaker, .duckOthers]
         )
         try session.setActive(true, options: .notifyOthersOnDeactivation)
+    }
+
+    /// Retorna `true` se a configuração mudou (o engine de saída precisa ser reiniciado).
+    @discardableResult
+    static func activateForSpeaking() throws -> Bool {
+        let session = AVAudioSession.sharedInstance()
+        let changed = session.category != .playback
+        if changed {
+            try session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+        }
+        try session.setActive(true, options: .notifyOthersOnDeactivation)
+        return changed
     }
 }

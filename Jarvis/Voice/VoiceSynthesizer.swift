@@ -80,6 +80,8 @@ final class VoiceSynthesizer {
             let buffers = await render(text)
             if Task.isCancelled { return }
             buffers.forEach(output.play)
+            // Respiro curto entre frases, como numa fala de verdade.
+            if !buffers.isEmpty, let pause = Self.silence(seconds: 0.18) { output.play(pause) }
         }
         // Uma tarefa cancelada não pode mexer no estado da que a substituiu.
         guard !Task.isCancelled else { return }
@@ -117,7 +119,7 @@ final class VoiceSynthesizer {
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = systemVoice()
         utterance.rate = rate
-        utterance.pitchMultiplier = language == .english ? 0.92 : 0.9
+        utterance.pitchMultiplier = 1.0
 
         let collector = BufferCollector()
         return await withCheckedContinuation { continuation in
@@ -143,6 +145,17 @@ final class VoiceSynthesizer {
         }
     }
 
+    static func silence(seconds: Double) -> AVAudioPCMBuffer? {
+        let format = AudioLevel.voiceFormat
+        let frames = AVAudioFrameCount(format.sampleRate * seconds)
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames) else { return nil }
+        buffer.frameLength = frames
+        if let channel = buffer.floatChannelData?[0] {
+            channel.initialize(repeating: 0, count: Int(frames))
+        }
+        return buffer
+    }
+
     /// Vozes instaladas para o idioma, das de maior qualidade para as de menor.
     static func voices(for language: JarvisLanguage) -> [AVSpeechSynthesisVoice] {
         AVSpeechSynthesisVoice.speechVoices()
@@ -154,15 +167,17 @@ final class VoiceSynthesizer {
         if !voiceIdentifier.isEmpty, let chosen = AVSpeechSynthesisVoice(identifier: voiceIdentifier) {
             return chosen
         }
+        // Qualidade primeiro (Premium > Aprimorada > Padrão): é o que mais deixa a fala natural.
+        // Dentro da melhor qualidade instalada, prefira voz masculina, como a do Jarvis.
         let candidates = Self.voices(for: language)
-        // Jarvis tem voz masculina e grave: prefira masculinas (ex.: "Daniel" en-GB, "Felipe" pt-BR).
-        let preferredNames = ["Daniel", "Arthur", "Felipe", "Eddy", "Reed"]
-        if let named = candidates.first(where: { preferredNames.contains($0.name) && $0.gender == .male }) {
-            return named
+        guard let best = candidates.first?.quality else {
+            return AVSpeechSynthesisVoice(language: language.rawValue)
         }
-        return candidates.first(where: { $0.gender == .male })
-            ?? candidates.first
-            ?? AVSpeechSynthesisVoice(language: language.rawValue)
+        let top = candidates.filter { $0.quality == best }
+        let preferredNames = ["Daniel", "Arthur", "Felipe", "Eddy", "Reed"]
+        return top.first(where: { preferredNames.contains($0.name) && $0.gender == .male })
+            ?? top.first(where: { $0.gender == .male })
+            ?? top.first
     }
 
     // MARK: Texto

@@ -73,21 +73,25 @@ final class VoiceOutput {
         presence.gain = 4
         presence.bypass = false
 
+        // Compensa o volume que o filtro de graves remove.
+        eq.globalGain = 4
+
         // Atraso de ~11 ms com realimentação = filtro "pente": o brilho metálico de IA.
         metallic.delayTime = 0.011
-        metallic.feedback = 45
+        metallic.feedback = 30
         metallic.lowPassCutoff = 9_000
-        metallic.wetDryMix = 16
+        metallic.wetDryMix = 7
 
         // Um pouco de ambiente, como se a voz viesse da oficina inteira.
         room.loadFactoryPreset(.mediumRoom)
-        room.wetDryMix = 12
+        room.wetDryMix = 6
     }
 
     // MARK: Reprodução
 
     func play(_ buffer: AVAudioPCMBuffer) {
         guard buffer.frameLength > 0 else { return }
+        if pending == 0 { prepareForSpeech() }
         ensureRunning()
         pending += 1
         player.scheduleBuffer(
@@ -103,9 +107,20 @@ final class VoiceOutput {
         onLevel?(0)
     }
 
+    /// Troca o áudio para o modo de reprodução (volume de mídia, AirPods em A2DP).
+    private func prepareForSpeech() {
+        do {
+            if try AudioSessionManager.activateForSpeaking(), engine.isRunning {
+                player.stop()
+                engine.stop()
+            }
+        } catch {
+            print("VoiceOutput: falha ao configurar áudio: \(error)")
+        }
+    }
+
     private func ensureRunning() {
         guard !engine.isRunning else { return }
-        try? AudioSessionManager.activate()
         do {
             try engine.start()
         } catch {
